@@ -3,12 +3,15 @@ use gio::prelude::*;
 use gtk::gdk;
 use gtk::prelude::*;
 use gtk4_layer_shell::{Edge, Layer, LayerShell};
-use keyframe::functions::{EaseInOut, EaseInQuad, Linear};
+use keyframe::functions::*;
 use rand::RngExt;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-struct TextCache {
+const MAX_ITEMS: usize = 10;
+
+#[derive(Clone)]
+struct FallItem {
     x0: f64,
     x1: f64,
     y0: f64,
@@ -16,6 +19,11 @@ struct TextCache {
     step: f64,
     duration: f64,
     direction: i32,
+    text: String,
+}
+
+struct FIM {
+    items: Vec<FallItem>,
     fontfam: &'static str,
 }
 
@@ -62,16 +70,24 @@ fn activate(application: &gtk::Application) {
     draw_area.set_hexpand(true);
     draw_area.set_vexpand(true);
 
-    let state = Rc::new(RefCell::new(TextCache {
-        x0: 0.0,
-        x1: 0.0,
-        y0: 0.0,
-        y1: 0.0,
-        step: 0.0,
-        duration: 2.0,
-        direction: 0,
+    let state = Rc::new(RefCell::new(FIM {
+        items: Vec::new(),
         fontfam: "Noto Color Emoji",
     }));
+
+    for _ in 0..=MAX_ITEMS {
+        let item = FallItem {
+            x0: 0.0,
+            x1: 0.0,
+            y0: 0.0,
+            y1: 0.0,
+            step: rand::random::<f64>(),
+            duration: 3.0,
+            direction: 0,
+            text: String::from("🍁"),
+        };
+        state.borrow_mut().items.push(item);
+    }
 
     let draw_state = state.clone();
     draw_area.set_draw_func(move |_, cr, _, _| {
@@ -88,10 +104,12 @@ fn activate(application: &gtk::Application) {
         //cr.set_font_size(fontsize);
         cr.set_font_size(26.0);
 
-        let x = keyframe::ease(Linear, draw_state.x0, draw_state.x1, draw_state.step);
-        let y = keyframe::ease(EaseInQuad, draw_state.y0, draw_state.y1, draw_state.step);
-        cr.move_to(x, y);
-        cr.show_text("🍁").unwrap();
+        for item in &draw_state.items {
+            let x = keyframe::ease(Linear, item.x0, item.x1, item.step);
+            let y = keyframe::ease(Linear, item.y0, item.y1, item.step);
+            cr.move_to(x, y);
+            cr.show_text(item.text.as_str()).unwrap();
+        }
 
         // Blit cached surface directly
         //cr.set_source_surface(&draw_state.text_surface, rounded_x, rounded_y)
@@ -104,11 +122,13 @@ fn activate(application: &gtk::Application) {
         let mut step_state = step_state.borrow_mut();
 
         //update the step_state, reset to 0 on overflow
-        step_state.step += 0.01 / step_state.duration;
-        if step_state.step > 1.0 {
-            step_state.step = 0.0;
-            (step_state.x0, step_state.x1, step_state.y0, step_state.y1) =
-                get_coords(step_state.direction, widget.width(), widget.height());
+        for item in &mut step_state.items {
+            item.step += 0.01 / item.duration;
+            if item.step > 1.0 {
+                item.step = 0.0;
+                (item.x0, item.x1, item.y0, item.y1) =
+                    get_coords(item.direction, widget.width(), widget.height());
+            }
         }
 
         //redraw the DrawingArea
