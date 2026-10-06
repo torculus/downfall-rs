@@ -1,10 +1,10 @@
+use fastrand;
 use gio::glib;
 use gio::prelude::*;
 use gtk::gdk;
 use gtk::prelude::*;
 use gtk4_layer_shell::{Edge, Layer, LayerShell};
 use keyframe::functions::*;
-use rand::RngExt;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -75,13 +75,15 @@ fn activate(application: &gtk::Application) {
         fontfam: "Noto Color Emoji",
     }));
 
+    //let falltext = vec![String::from("🍁"), String::from("🙂")];
+
     for _ in 0..=MAX_ITEMS {
         let item = FallItem {
             x0: 0.0,
             x1: 0.0,
             y0: 0.0,
             y1: 0.0,
-            step: rand::random::<f64>(),
+            step: fastrand::f64(),
             duration: 3.0,
             direction: 0,
             text: String::from("🍁"),
@@ -141,7 +143,6 @@ fn activate(application: &gtk::Application) {
 }
 
 fn get_coords(direction: i32, width: i32, height: i32) -> (f64, f64, f64, f64) {
-    let mut rng = rand::rng();
     let x0;
     let x1;
     let y0;
@@ -149,15 +150,15 @@ fn get_coords(direction: i32, width: i32, height: i32) -> (f64, f64, f64, f64) {
     match direction {
         0 => {
             //Down
-            x0 = (width as f64) * rng.random_range(0.0..=1.0);
-            x1 = (width as f64) * rng.random_range(0.0..=1.0);
+            x0 = (width as f64) * fastrand::f64_inclusive();
+            x1 = (width as f64) * fastrand::f64_inclusive();
             y0 = 0.0;
             y1 = height as f64;
         }
         1 => {
             //Up
-            x0 = (width as f64) * rng.random_range(0.0..=1.0);
-            x1 = (width as f64) * rng.random_range(0.0..=1.0);
+            x0 = (width as f64) * fastrand::f64_inclusive();
+            x1 = (width as f64) * fastrand::f64_inclusive();
             y0 = height as f64;
             y1 = 0.0;
         }
@@ -165,50 +166,50 @@ fn get_coords(direction: i32, width: i32, height: i32) -> (f64, f64, f64, f64) {
             //Right
             x0 = 0.0;
             x1 = width as f64;
-            y0 = (height as f64) * rng.random_range(0.0..=1.0);
-            y1 = (height as f64) * rng.random_range(0.0..=1.0);
+            y0 = (height as f64) * fastrand::f64_inclusive();
+            y1 = (height as f64) * fastrand::f64_inclusive();
         }
         3 => {
             //Left
             x0 = width as f64;
             x1 = 0.0;
-            y0 = (height as f64) * rng.random_range(0.0..=1.0);
-            y1 = (height as f64) * rng.random_range(0.0..=1.0);
+            y0 = (height as f64) * fastrand::f64_inclusive();
+            y1 = (height as f64) * fastrand::f64_inclusive();
         }
         4 => {
             //Up-Right
             x0 = 0.0;
             x1 = width as f64;
-            y0 = (height as f64) * rng.random_range(0.5..=1.5);
-            y1 = (height as f64) * rng.random_range(0.0..=0.5);
+            y0 = (height as f64) * (fastrand::f64_inclusive() + 0.5);
+            y1 = (height as f64) * fastrand::f64_inclusive() * 0.5;
         }
         5 => {
             //Up-Left
             x0 = width as f64;
             x1 = 0.0;
-            y0 = (height as f64) * rng.random_range(0.5..=1.5);
-            y1 = (height as f64) * rng.random_range(0.0..=0.5);
+            y0 = (height as f64) * (fastrand::f64_inclusive() + 0.5);
+            y1 = (height as f64) * fastrand::f64_inclusive() * 0.5;
         }
         6 => {
             //Down-Right
             x0 = 0.0;
             x1 = width as f64;
-            y0 = (height as f64) * rng.random_range(0.0..=0.5);
-            y1 = (height as f64) * rng.random_range(0.5..=1.5);
+            y0 = (height as f64) * fastrand::f64_inclusive() * 0.5;
+            y1 = (height as f64) * (fastrand::f64_inclusive() + 0.5);
         }
         7 => {
             //Down-Left
             x0 = width as f64;
             x1 = 0.0;
-            y0 = (height as f64) * rng.random_range(0.0..=0.5);
-            y1 = (height as f64) * rng.random_range(0.5..=1.5);
+            y0 = (height as f64) * fastrand::f64_inclusive() * 0.5;
+            y1 = (height as f64) * (fastrand::f64_inclusive() + 0.5);
         }
         _ => {
             //Unpredictable (??)
-            x0 = (width as f64) * rng.random_range(0.0..=1.0);
-            x1 = (width as f64) * rng.random_range(0.0..=1.0);
-            y0 = (height as f64) * rng.random_range(0.0..=1.0);
-            y1 = (height as f64) * rng.random_range(0.0..=1.0);
+            x0 = (width as f64) * fastrand::f64_inclusive();
+            x1 = (width as f64) * fastrand::f64_inclusive();
+            y0 = (height as f64) * fastrand::f64_inclusive();
+            y1 = (height as f64) * fastrand::f64_inclusive();
         }
     }
     return (x0, x1, y0, y1);
