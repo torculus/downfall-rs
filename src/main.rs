@@ -1,10 +1,12 @@
 use fastrand;
 use gio::glib;
 use gio::prelude::*;
+use gtk::cairo;
 use gtk::gdk;
 use gtk::prelude::*;
 use gtk4_layer_shell::{Edge, Layer, LayerShell};
 use keyframe::functions::*;
+use pango;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -20,6 +22,39 @@ struct FallItem {
     duration: f64,
     direction: i32,
     text: String,
+    text_surface: cairo::ImageSurface,
+    //pango_context: pangocairo::cairo::Context;
+}
+
+impl FallItem {
+    fn new() -> Self {
+        let dummy_surface = cairo::ImageSurface::create(cairo::Format::ARgb32, 1, 1).unwrap();
+        let dummy_cr: cairo::Context = cairo::Context::new(dummy_surface).unwrap();
+        let pango_ctx = pangocairo::functions::create_context(&dummy_cr);
+        Self {
+            x0: (0.0),
+            x1: (0.0),
+            y0: (0.0),
+            y1: (0.0),
+            step: (0.0),
+            duration: (0.0),
+            direction: (0),
+            text: (String::from("ABC")),
+            text_surface: (),
+        }
+    }
+    fn change(&self) {
+        let layout = pango::Layout::new(&pango_ctx);
+
+        let mut fontdesc = pango::FontDescription::new();
+        fontdesc.set_family("Sans");
+        fontdesc.set_weight(pango::Weight::Normal);
+        fontdesc.set_absolute_size(36.0 * pango::SCALE as f64);
+        layout.set_font_description(Some(&fontdesc));
+        layout.set_text(self.text.as_str());
+
+        let (text_width, text_height) = layout.pixel_size();
+    }
 }
 
 struct FIM {
@@ -79,14 +114,15 @@ fn activate(application: &gtk::Application) {
 
     for _ in 0..=MAX_ITEMS {
         let item = FallItem {
-            x0: 0.0,
-            x1: 0.0,
-            y0: 0.0,
-            y1: 0.0,
+            x0: fastrand::f64(),
+            x1: fastrand::f64(),
+            y0: fastrand::f64(),
+            y1: fastrand::f64(),
             step: fastrand::f64(),
             duration: 3.0,
             direction: 0,
             text: String::from("🍁"),
+            text_surface: cairo::ImageSurface::create(cairo::Format::ARgb32, 1, 1).unwrap(),
         };
         state.borrow_mut().items.push(item);
     }
@@ -111,6 +147,8 @@ fn activate(application: &gtk::Application) {
             let y = keyframe::ease(Linear, item.y0, item.y1, item.step);
             cr.move_to(x, y);
             cr.show_text(item.text.as_str()).unwrap();
+            cr.set_source_surface(&item.text_surface, x, y).unwrap();
+            cr.paint().unwrap();
         }
 
         // Blit cached surface directly
