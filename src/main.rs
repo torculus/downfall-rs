@@ -21,45 +21,28 @@ struct FallItem {
     step: f64,
     duration: f64,
     direction: i32,
-    text: String,
-    text_surface: cairo::ImageSurface,
-    //pango_context: pangocairo::cairo::Context;
+    picture: cairo::ImageSurface,
 }
 
 impl FallItem {
-    fn new() -> Self {
-        let dummy_surface = cairo::ImageSurface::create(cairo::Format::ARgb32, 1, 1).unwrap();
-        let dummy_cr: cairo::Context = cairo::Context::new(dummy_surface).unwrap();
-        let pango_ctx = pangocairo::functions::create_context(&dummy_cr);
-        Self {
-            x0: (0.0),
-            x1: (0.0),
-            y0: (0.0),
-            y1: (0.0),
-            step: (0.0),
-            duration: (0.0),
-            direction: (0),
-            text: (String::from("ABC")),
-            text_surface: (),
-        }
-    }
-    fn change(&self) {
-        let layout = pango::Layout::new(&pango_ctx);
-
-        let mut fontdesc = pango::FontDescription::new();
-        fontdesc.set_family("Sans");
-        fontdesc.set_weight(pango::Weight::Normal);
-        fontdesc.set_absolute_size(36.0 * pango::SCALE as f64);
-        layout.set_font_description(Some(&fontdesc));
-        layout.set_text(self.text.as_str());
-
-        let (text_width, text_height) = layout.pixel_size();
-    }
+    fn change(&self) {}
 }
 
+#[derive(Clone)]
 struct FIM {
-    items: Vec<FallItem>,
+    fallitems: Vec<FallItem>,
+    fallpics: Vec<cairo::ImageSurface>,
     fontfam: &'static str,
+}
+
+impl FIM {
+    fn new(fstr: Vec<&'static str>) -> Self {
+        Self {
+            fallitems: Vec::new(),
+            fallpics: pre_render(fstr),
+            fontfam: "Noto Color Emoji",
+        }
+    }
 }
 
 fn activate(application: &gtk::Application) {
@@ -105,14 +88,17 @@ fn activate(application: &gtk::Application) {
     draw_area.set_hexpand(true);
     draw_area.set_vexpand(true);
 
-    let state = Rc::new(RefCell::new(FIM {
-        items: Vec::new(),
-        fontfam: "Noto Color Emoji",
-    }));
+    let config_fallstrings = vec!["🍁", "🍂"];
 
-    //let falltext = vec![String::from("🍁"), String::from("🙂")];
+    //the state is a FIM
+    let state = Rc::new(RefCell::new(FIM::new(config_fallstrings)));
 
     for _ in 0..=MAX_ITEMS {
+        //snag a random picture out of the (cloned) state.fallpics
+        let mut pics = state.borrow_mut().fallpics.clone();
+        let index = fastrand::usize(..pics.len());
+        let pic = pics.swap_remove(index);
+
         let item = FallItem {
             x0: fastrand::f64(),
             x1: fastrand::f64(),
@@ -121,10 +107,9 @@ fn activate(application: &gtk::Application) {
             step: fastrand::f64(),
             duration: 3.0,
             direction: 0,
-            text: String::from("🍁"),
-            text_surface: cairo::ImageSurface::create(cairo::Format::ARgb32, 1, 1).unwrap(),
+            picture: pic,
         };
-        state.borrow_mut().items.push(item);
+        state.borrow_mut().fallitems.push(item);
     }
 
     let draw_state = state.clone();
@@ -132,29 +117,16 @@ fn activate(application: &gtk::Application) {
         //borrow the state each time
         let draw_state = draw_state.borrow_mut();
 
-        cr.set_source_rgba(1.0, 1.0, 1.0, 1.0);
-
-        cr.select_font_face(
-            draw_state.fontfam,
-            gtk::cairo::FontSlant::Normal,
-            gtk::cairo::FontWeight::Normal,
-        );
-        //cr.set_font_size(fontsize);
-        cr.set_font_size(26.0);
-
-        for item in &draw_state.items {
+        for item in &draw_state.fallitems {
             let x = keyframe::ease(Linear, item.x0, item.x1, item.step);
             let y = keyframe::ease(Linear, item.y0, item.y1, item.step);
-            cr.move_to(x, y);
-            cr.show_text(item.text.as_str()).unwrap();
-            cr.set_source_surface(&item.text_surface, x, y).unwrap();
+            //cr.move_to(x, y);
+            //cr.show_text(item.text.as_str()).unwrap();
+
+            // Blit cached surface directly
+            cr.set_source_surface(&item.picture, x, y).unwrap();
             cr.paint().unwrap();
         }
-
-        // Blit cached surface directly
-        //cr.set_source_surface(&draw_state.text_surface, rounded_x, rounded_y)
-        //.unwrap();
-        //cr.paint().unwrap();
     });
 
     let step_state = state.clone();
@@ -162,7 +134,8 @@ fn activate(application: &gtk::Application) {
         let mut step_state = step_state.borrow_mut();
 
         //update the step_state, reset to 0 on overflow
-        for item in &mut step_state.items {
+        for item in &mut step_state.fallitems {
+            //update by 1% of the duration
             item.step += 0.01 / item.duration;
             if item.step > 1.0 {
                 item.step = 0.0;
@@ -253,8 +226,44 @@ fn get_coords(direction: i32, width: i32, height: i32) -> (f64, f64, f64, f64) {
     return (x0, x1, y0, y1);
 }
 
+fn pre_render(vecstrings: Vec<&str>) -> Vec<cairo::ImageSurface> {
+    let mut pics = Vec::new();
+
+    let dummy_surface = cairo::ImageSurface::create(cairo::Format::ARgb32, 1, 1).unwrap();
+    let dummy_cr: cairo::Context = cairo::Context::new(dummy_surface).unwrap();
+    let pango_ctx = pangocairo::functions::create_context(&dummy_cr);
+    let layout = pango::Layout::new(&pango_ctx);
+
+    let mut fontdesc = pango::FontDescription::new();
+    fontdesc.set_family("Noto Color Emoji");
+    fontdesc.set_weight(pango::Weight::Normal);
+    fontdesc.set_absolute_size(26.0 * pango::SCALE as f64);
+    layout.set_font_description(Some(&fontdesc));
+
+    for string in vecstrings {
+        layout.set_text(string);
+
+        let (text_width, text_height) = layout.pixel_size();
+
+        // Add extra padding to the surface dimensions so blurred edges aren't clipped
+        let padding = 30;
+        let surf_w = text_width + (padding * 2);
+        let surf_h = text_height + (padding * 2);
+
+        // --- Create Crisp Foreground Layer ---
+        let text_surface =
+            cairo::ImageSurface::create(cairo::Format::ARgb32, surf_w, surf_h).unwrap();
+        let cr_text = cairo::Context::new(&text_surface).unwrap();
+        cr_text.move_to(padding as f64, padding as f64);
+        cr_text.set_source_rgb(1.0, 1.0, 1.0); // White main text
+        pangocairo::functions::show_layout(&cr_text, &layout);
+
+        pics.push(text_surface);
+    }
+    pics
+}
 fn main() {
-    let application = gtk::Application::new(Some("sh.wmww.gtk-layer-example"), Default::default());
+    let application = gtk::Application::new(Some("downfall.rs"), Default::default());
 
     application.connect_activate(|app| {
         activate(app);
