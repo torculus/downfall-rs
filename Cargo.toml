@@ -3,6 +3,10 @@ name = "downfall-rs"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "downfall"
+path = "src/main.rs"
+
 [dependencies]
 cairo-rs = "0.22.9"
 fastrand = "2.5.0"
