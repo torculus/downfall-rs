@@ -1,3 +1,4 @@
+use directories::ProjectDirs;
 use fastrand;
 use gio::glib;
 use gio::prelude::*;
@@ -7,10 +8,60 @@ use gtk::prelude::*;
 use gtk4_layer_shell::{Edge, Layer, LayerShell};
 use keyframe::functions::*;
 use pango;
+use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
+use std::fs;
+use std::path::PathBuf;
 use std::rc::Rc;
 
-const MAX_ITEMS: usize = 10;
+fn get_config_path() -> Option<PathBuf> {
+    // Qualifiers: "com", Organization: "MyOrg", Application: "MyApp"
+    let proj_dirs = ProjectDirs::from("com", "torculus", "downfall")?;
+    let config_dir = proj_dirs.config_dir();
+    fs::create_dir_all(config_dir).ok()?;
+    Some(config_dir.join("config.toml"))
+}
+
+fn load_config() -> AppSettings {
+    let path = match get_config_path() {
+        Some(p) => p,
+        None => return AppSettings::default(),
+    };
+
+    if path.exists() {
+        let contents = fs::read_to_string(path).unwrap_or_default();
+        toml::from_str(&contents).unwrap_or_else(|_| AppSettings::default())
+    } else {
+        let config = AppSettings::default();
+        save_config(&config);
+        config
+    }
+}
+
+fn save_config(config: &AppSettings) {
+    if let Some(path) = get_config_path() {
+        if let Ok(toml_string) = toml::to_string_pretty(config) {
+            let _ = fs::write(path, toml_string);
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AppSettings {
+    pub fallstrings: Vec<String>,
+    pub max_items: usize,
+    pub fontfam: String,
+}
+
+impl Default for AppSettings {
+    fn default() -> Self {
+        Self {
+            fallstrings: vec![String::from("🍁"), String::from("🍂")],
+            max_items: 10,
+            fontfam: String::from("Noto Color Emoji"),
+        }
+    }
+}
 
 #[derive(Clone)]
 struct FallItem {
@@ -32,15 +83,13 @@ impl FallItem {
 struct FIM {
     fallitems: Vec<FallItem>,
     fallpics: Vec<cairo::ImageSurface>,
-    fontfam: &'static str,
 }
 
 impl FIM {
-    fn new(fstr: Vec<&'static str>) -> Self {
+    fn new(fstr: Vec<String>) -> Self {
         Self {
             fallitems: Vec::new(),
             fallpics: pre_render(fstr),
-            fontfam: "Noto Color Emoji",
         }
     }
 }
@@ -88,12 +137,13 @@ fn activate(application: &gtk::Application) {
     draw_area.set_hexpand(true);
     draw_area.set_vexpand(true);
 
-    let config_fallstrings = vec!["🍁", "🍂"];
+    let app_config = load_config();
+    let config_fallstrings = app_config.fallstrings.clone();
 
     //the state is a FIM
     let state = Rc::new(RefCell::new(FIM::new(config_fallstrings)));
 
-    for _ in 0..=MAX_ITEMS {
+    for _ in 0..=app_config.max_items {
         //snag a random picture out of the (cloned) state.fallpics
         let mut pics = state.borrow_mut().fallpics.clone();
         let index = fastrand::usize(..pics.len());
@@ -120,8 +170,6 @@ fn activate(application: &gtk::Application) {
         for item in &draw_state.fallitems {
             let x = keyframe::ease(Linear, item.x0, item.x1, item.step);
             let y = keyframe::ease(Linear, item.y0, item.y1, item.step);
-            //cr.move_to(x, y);
-            //cr.show_text(item.text.as_str()).unwrap();
 
             // Blit cached surface directly
             cr.set_source_surface(&item.picture, x, y).unwrap();
@@ -226,7 +274,8 @@ fn get_coords(direction: i32, width: i32, height: i32) -> (f64, f64, f64, f64) {
     return (x0, x1, y0, y1);
 }
 
-fn pre_render(vecstrings: Vec<&str>) -> Vec<cairo::ImageSurface> {
+//yes, Google search AI recommended this function
+fn pre_render(vecstrings: Vec<String>) -> Vec<cairo::ImageSurface> {
     let mut pics = Vec::new();
 
     let dummy_surface = cairo::ImageSurface::create(cairo::Format::ARgb32, 1, 1).unwrap();
@@ -241,7 +290,7 @@ fn pre_render(vecstrings: Vec<&str>) -> Vec<cairo::ImageSurface> {
     layout.set_font_description(Some(&fontdesc));
 
     for string in vecstrings {
-        layout.set_text(string);
+        layout.set_text(string.as_str());
 
         let (text_width, text_height) = layout.pixel_size();
 
