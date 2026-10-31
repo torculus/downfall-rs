@@ -24,8 +24,8 @@ fn get_config_path() -> Option<PathBuf> {
 
 fn load_config() -> AppSettings {
     let path = match get_config_path() {
-        Some(p) => p,
-        None => return AppSettings::default(),
+        Option::Some(p) => p,
+        Option::None => return AppSettings::default(),
     };
 
     if path.exists() {
@@ -48,17 +48,44 @@ fn save_config(config: &AppSettings) {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AppSettings {
+    pub preset: String,
+    pub layer: String,
     pub fallstrings: Vec<String>,
     pub max_items: usize,
+    pub direction: i32,
+    pub avg_duration: f64,
+    pub avg_drift: f64,
+    pub x_easing_func: String,
+    pub y_easing_func: String,
+
+    // text settings
+    pub text_red: f64,
+    pub text_green: f64,
+    pub text_blue: f64,
+    pub text_alpha: f64,
     pub fontfam: String,
+    pub fontsize: f64,
 }
 
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
+            preset: String::from("None"),
+            layer: String::from("Background"),
             fallstrings: vec![String::from("🍁"), String::from("🍂")],
             max_items: 10,
+            direction: 0,
+            avg_duration: 3.0,
+            avg_drift: 50.0,
+            x_easing_func: String::from("Linear"),
+            y_easing_func: String::from("Linear"),
+
+            text_red: 0.9,
+            text_green: 0.99,
+            text_blue: 0.5,
+            text_alpha: 1.0,
             fontfam: String::from("Noto Color Emoji"),
+            fontsize: 26.0,
         }
     }
 }
@@ -98,6 +125,8 @@ fn activate(application: &gtk::Application) {
     // Create a normal GTK window however you like
     let window = gtk::ApplicationWindow::new(application);
 
+    let app_config = load_config();
+
     // Make sure the window is transparent
     let css_provider = gtk::CssProvider::new();
     css_provider.load_from_data(
@@ -123,8 +152,14 @@ fn activate(application: &gtk::Application) {
     // Before the window is first realized, set it up to be a layer surface
     window.init_layer_shell();
 
-    // Display behind normal windows
-    window.set_layer(Layer::Bottom);
+    // Display on the appropriate Layer Shell layer
+    let layer = app_config.layer.as_str();
+    window.set_layer(match layer {
+        "Top" => Layer::Top,
+        "Overlay" => Layer::Overlay,
+        "Background" => Layer::Background,
+        _ => Layer::Bottom,
+    });
 
     // pin the window to all sides
     let anchors = [Edge::Left, Edge::Right, Edge::Top, Edge::Bottom];
@@ -137,10 +172,8 @@ fn activate(application: &gtk::Application) {
     draw_area.set_hexpand(true);
     draw_area.set_vexpand(true);
 
-    let app_config = load_config();
-    let config_fallstrings = app_config.fallstrings.clone();
-
     //the state is a FIM
+    let config_fallstrings = app_config.fallstrings.clone();
     let state = Rc::new(RefCell::new(FIM::new(config_fallstrings)));
 
     for _ in 0..=app_config.max_items {
@@ -155,8 +188,8 @@ fn activate(application: &gtk::Application) {
             y0: fastrand::f64(),
             y1: fastrand::f64(),
             step: fastrand::f64(),
-            duration: 3.0,
-            direction: 0,
+            duration: app_config.avg_duration,
+            direction: app_config.direction,
             picture: pic,
         };
         state.borrow_mut().fallitems.push(item);
@@ -274,9 +307,20 @@ fn get_coords(direction: i32, width: i32, height: i32) -> (f64, f64, f64, f64) {
     return (x0, x1, y0, y1);
 }
 
+//fn get_easing_func(easing: String) -> keyframe::EasingFunction {
+//    let app_config = load_config();
+//    match easing.as_str() {
+//        "Linear" => keyframe::functions::Linear,
+//        "EaseInQuad" => keyframe::functions::EaseInQuad,
+//        _ => keyframe::functions::Cubic,
+//    }
+//}
+
 //yes, Google search AI recommended this function
 fn pre_render(vecstrings: Vec<String>) -> Vec<cairo::ImageSurface> {
     let mut pics = Vec::new();
+
+    let app_config = load_config();
 
     let dummy_surface = cairo::ImageSurface::create(cairo::Format::ARgb32, 1, 1).unwrap();
     let dummy_cr: cairo::Context = cairo::Context::new(dummy_surface).unwrap();
@@ -284,9 +328,9 @@ fn pre_render(vecstrings: Vec<String>) -> Vec<cairo::ImageSurface> {
     let layout = pango::Layout::new(&pango_ctx);
 
     let mut fontdesc = pango::FontDescription::new();
-    fontdesc.set_family("Noto Color Emoji");
+    fontdesc.set_family(app_config.fontfam.as_str());
     fontdesc.set_weight(pango::Weight::Normal);
-    fontdesc.set_absolute_size(26.0 * pango::SCALE as f64);
+    fontdesc.set_absolute_size(app_config.fontsize * pango::SCALE as f64);
     layout.set_font_description(Some(&fontdesc));
 
     for string in vecstrings {
@@ -304,7 +348,12 @@ fn pre_render(vecstrings: Vec<String>) -> Vec<cairo::ImageSurface> {
             cairo::ImageSurface::create(cairo::Format::ARgb32, surf_w, surf_h).unwrap();
         let cr_text = cairo::Context::new(&text_surface).unwrap();
         cr_text.move_to(padding as f64, padding as f64);
-        cr_text.set_source_rgb(1.0, 1.0, 1.0); // White main text
+        cr_text.set_source_rgba(
+            app_config.text_red,
+            app_config.text_green,
+            app_config.text_blue,
+            app_config.text_alpha,
+        );
         pangocairo::functions::show_layout(&cr_text, &layout);
 
         pics.push(text_surface);
