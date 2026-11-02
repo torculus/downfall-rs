@@ -5,7 +5,7 @@ use gio::prelude::*;
 use gtk::cairo;
 use gtk::gdk;
 use gtk::prelude::*;
-use gtk4_layer_shell::{Edge, Layer, LayerShell};
+use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use keyframe::functions::*;
 use pango;
 use serde::{Deserialize, Serialize};
@@ -159,6 +159,17 @@ fn activate(application: &gtk::Application) {
         "Overlay" => Layer::Overlay,
         "Background" => Layer::Background,
         _ => Layer::Bottom,
+    });
+
+    // Make the window non-responsive to keyboard and pass through mouse click
+    window.set_keyboard_mode(KeyboardMode::None);
+    window.connect_realize(|win| {
+        if let Some(surface) = win.surface() {
+            // An empty cairo region represents no input area,
+            // making the entire window transparent to clicks.
+            let empty_region = cairo::Region::create();
+            surface.set_input_region(Some(&empty_region));
+        }
     });
 
     // pin the window to all sides
