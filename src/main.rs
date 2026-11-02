@@ -199,7 +199,7 @@ fn activate(application: &gtk::Application) {
             y0: fastrand::f64(),
             y1: fastrand::f64(),
             step: fastrand::f64(),
-            duration: app_config.avg_duration,
+            duration: app_config.avg_duration + 2.0 * fastrand::f64_inclusive() - 1.0,
             direction: app_config.direction,
             picture: pic,
         };
@@ -231,8 +231,12 @@ fn activate(application: &gtk::Application) {
             item.step += 0.01 / item.duration;
             if item.step > 1.0 {
                 item.step = 0.0;
-                (item.x0, item.x1, item.y0, item.y1) =
-                    get_coords(item.direction, widget.width(), widget.height());
+                (item.x0, item.x1, item.y0, item.y1) = get_coords(
+                    item.direction,
+                    widget.width(),
+                    widget.height(),
+                    app_config.avg_drift,
+                );
             }
         }
 
@@ -245,63 +249,66 @@ fn activate(application: &gtk::Application) {
     window.present();
 }
 
-fn get_coords(direction: i32, width: i32, height: i32) -> (f64, f64, f64, f64) {
+fn get_coords(direction: i32, width: i32, height: i32, ad: f64) -> (f64, f64, f64, f64) {
     let x0;
     let x1;
     let y0;
     let y1;
+    let rand1 = f64::from(fastrand::i32(-50..50)) / 100.0; //-0.50 to +0.50
+    let drift_width = ad / 100.0 * (width as f64);
+    let drift_height = ad / 100.0 * (height as f64);
     match direction {
         0 => {
-            //Down
+            //Down (↓)
             x0 = (width as f64) * fastrand::f64_inclusive();
-            x1 = (width as f64) * fastrand::f64_inclusive();
+            x1 = x0 + drift_width * rand1;
             y0 = 0.0;
             y1 = height as f64;
         }
         1 => {
-            //Up
+            //Up (↑)
             x0 = (width as f64) * fastrand::f64_inclusive();
-            x1 = (width as f64) * fastrand::f64_inclusive();
+            x1 = x0 + drift_width * rand1;
             y0 = height as f64;
             y1 = 0.0;
         }
         2 => {
-            //Right
+            //Right (→)
             x0 = 0.0;
             x1 = width as f64;
             y0 = (height as f64) * fastrand::f64_inclusive();
-            y1 = (height as f64) * fastrand::f64_inclusive();
+            y1 = y0 + drift_height * rand1;
         }
         3 => {
-            //Left
+            //Left (←)
             x0 = width as f64;
             x1 = 0.0;
             y0 = (height as f64) * fastrand::f64_inclusive();
-            y1 = (height as f64) * fastrand::f64_inclusive();
+            y1 = y0 + drift_height * rand1;
         }
         4 => {
-            //Up-Right
+            //Up-Right (↗)
             x0 = 0.0;
             x1 = width as f64;
             y0 = (height as f64) * (fastrand::f64_inclusive() + 0.5);
             y1 = (height as f64) * fastrand::f64_inclusive() * 0.5;
         }
         5 => {
-            //Up-Left
+            //Up-Left (↖)
             x0 = width as f64;
             x1 = 0.0;
             y0 = (height as f64) * (fastrand::f64_inclusive() + 0.5);
             y1 = (height as f64) * fastrand::f64_inclusive() * 0.5;
         }
         6 => {
-            //Down-Right
+            //Down-Right (↘)
             x0 = 0.0;
             x1 = width as f64;
             y0 = (height as f64) * fastrand::f64_inclusive() * 0.5;
             y1 = (height as f64) * (fastrand::f64_inclusive() + 0.5);
         }
         7 => {
-            //Down-Left
+            //Down-Left (↙)
             x0 = width as f64;
             x1 = 0.0;
             y0 = (height as f64) * fastrand::f64_inclusive() * 0.5;

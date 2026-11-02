@@ -19,14 +19,14 @@ Text items can fall in eight directions on either the primary or current monitor
 Additional configuration options (will!) include color, font, size, fall speed/time, rotation, and drift
 
 DownFall-rs is under active development to reach feature parity with DownFall, and will eventually be able to render multiple effects such as:  
-- [ ] Snow (Down-left ❄, ❅, ❆, *, .)
+- [x] Snow (Down-left ❄, ❅, ❆, *, .)
 - [x] Falling leaves (Down, Down-left, Left 🍁️, 🍂️)
+- [x] Rain (Down, .,💧️)
+- [x] Meteorites / shooting stars (Down-right *, .)
+- [x] Japanese cherry blossoms (Down 🌸️)
+- [x] Raining money (💰️,💵️,🪙️)
+- [ ] Lava Lamp
 - [ ] Digital rain from The Matrix® series (ﾊ,ﾐ,ﾋ,ｰ,ｳ,ｼ,ﾅ,ﾓ,ﾆ,ｻ,ﾜ,ﾂ,ｵ,ﾘ,ｱ,ﾎ,ﾃ,ﾏ,ｹ,ﾒ,ｴ,ｶ,ｷ,ﾑ,ﾕ,ﾗ,ｾ,ﾈ,ｽ,ﾀ,ﾇ,ﾍ)
 - [ ] Fireworks (Up, Up-right, Up-left ., *, |)
-- [ ] Rain (Down, .,💧️)
-- [ ] Lava Lamp
-- [ ] Meteorites / shooting stars (Down-right *, .)
-- [ ] Japanese cherry blossoms (Down 🌸️)
 - [ ] The opening crawls from Star Wars®
-- [ ] Raining money (💰️,💵️,🪙️)
 - [ ] And much more!
